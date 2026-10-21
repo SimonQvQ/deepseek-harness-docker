@@ -55,8 +55,6 @@ envsubst '${DSH_PORT} ${PROXY_PORT} ${PROXY_AUTH}' \
     < /etc/caddy/Caddyfile.template \
     > /etc/caddy/Caddyfile
 
-echo "Generated Caddyfile:"
-cat /etc/caddy/Caddyfile
 
 # --- Optional: update DSH inside the container ---
 if [ "${DSH_UPDATE_ON_START}" = "true" ]; then
@@ -65,36 +63,11 @@ if [ "${DSH_UPDATE_ON_START}" = "true" ]; then
     echo "DSH version: $(dsh --version 2>&1 || echo unknown)"
 fi
 
-# --- Start DSH web ---
-# HMR service requires Node.js --expose-internals, which Node 22+ forbids
-# via NODE_OPTIONS — must be passed directly to node. Use the real package
-# path (the /usr/local/bin/dsh symlink would break import.meta.url).
-# No --trusted-host is needed: Caddy rewrites Host/Origin to loopback
-# upstream, so every /api request (settings/credentials included) is already
-# seen as loopback by DSH — LAN access works with zero configuration.
-DSH_BIN=/usr/local/lib/node_modules/@deepseek-ai/dsh/lib/bin.js
+# Updating replaces the frontend assets, so restore the LAN compatibility patch.
+if [ "${DSH_UPDATE_ON_START}" = "true" ]; then
+    node /opt/dsh-docker/inject-polyfill.js
+fi
 
-echo "Starting DSH web on ${DSH_HOST:-127.0.0.1}:${DSH_PORT}..."
-node --expose-internals "${DSH_BIN}" web \
-    --host "${DSH_HOST:-127.0.0.1}" \
-    --port "${DSH_PORT}" \
-    --no-open \
-    &
-DSH_PID=$!
-
-# Wait for DSH to be ready
-echo "Waiting for DSH to be ready..."
-for i in $(seq 1 30); do
-    if wget --no-verbose --tries=1 --spider "http://${DSH_HOST:-127.0.0.1}:${DSH_PORT}/" > /dev/null 2>&1; then
-        echo "DSH is ready!"
-        break
-    fi
-    if [ $i -eq 30 ]; then
-        echo "WARNING: DSH did not respond within 30s, starting Caddy anyway..."
-    fi
-    sleep 1
-done
-
-# --- Start Caddy ---
-echo "Starting Caddy on :${PROXY_PORT}..."
-exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
+# The supervisor exchanges DSH's launch token on loopback, supplies the signed
+# session to Caddy, refreshes it, and forwards shutdown to both services.
+exec node /opt/dsh-docker/start-services.js

@@ -36,11 +36,11 @@ services:
       - dsh_data:/opt/dsh-home
       - ./workspace:/workspace
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:${DSH_PORT:-3079}/"]
+      test: ["CMD", "node", "/opt/dsh-docker/healthcheck.js"]
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 15s
+      start_period: 60s
 
 volumes:
   dsh_data:

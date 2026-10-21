@@ -87,6 +87,7 @@ COPY Caddyfile.template /etc/caddy/Caddyfile.template
 
 # Copy entrypoint
 COPY entrypoint.sh /entrypoint.sh
+COPY scripts /opt/dsh-docker
 RUN chmod +x /entrypoint.sh
 
 # Working directory for DSH sessions
@@ -94,7 +95,7 @@ WORKDIR /workspace
 RUN mkdir -p /workspace
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:${DSH_PORT:-3079}/ || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+    CMD ["node", "/opt/dsh-docker/healthcheck.js"]
 
 ENTRYPOINT ["/entrypoint.sh"]
