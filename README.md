@@ -77,7 +77,8 @@ docker run -d --name deepseek-harness \
 DSH 的敏感 API（`settings.*`、`credentials.*`）默认仅限回环访问。本镜像已通过两层机制解除限制，**局域网 HTTP 访问开箱即用**，无需填写 IP：
 
 1. **Caddy 回环呈现** —— 反向代理将上游 `Host`/`Origin` 改写为 `127.0.0.1:${DSH_PORT}`，使所有敏感 API 放行。
-2. **浏览器端回环对齐** —— 注入脚本将 `connection.isLoopback` 置为 `true`，设置面板（提供方目录 / API Key 配置）对远程浏览器可用。
+2. **内部浏览器认证** —— 容器内交换 DSH 启动令牌取得签名会话，由 Caddy 转发给 DSH 并定期刷新。无需手动复制令牌，认证信息不会输出到日志。
+3. **浏览器端回环对齐** —— 注入脚本将 `connection.isLoopback` 置为 `true`，设置面板（提供方目录 / API Key 配置）对远程浏览器可用。
 
 同时内置 `crypto.randomUUID` polyfill，非 HTTPS 环境下 Web UI 也能正常工作。
 
@@ -134,7 +135,7 @@ python3 --version && cmake --version && gcc --version
 - DSH 仅监听 `127.0.0.1`，对外唯一入口是 Caddy，避免直接暴露 RCE 面。
 - 免密码模式：`DSH_PERMISSION_MODE=danger-full-access`（审批策略 `never`）。
 - 每日 00:00 UTC 由 GitHub Actions 自动构建并推送最新版到 Docker Hub + GHCR。
-- 每次构建自动运行 **smoke test**：启动容器 → curl 验证页面 → 模拟局域网 Host 验证特权 API 不再 403 → 通过后才发布。
+- 每次构建自动运行 **smoke test**：启动容器 → curl 验证页面 → 模拟局域网 Host 验证特权 API 返回 200（401 / 403 均视为失败） → 通过后才发布。
 - 失败时自动上传 `dsh-error-logs` 与 `docker-build-files` 构建产物供排查。
 
 ## 常见问题

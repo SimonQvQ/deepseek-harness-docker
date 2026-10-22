@@ -25,6 +25,8 @@
         }
         header_up Host 127.0.0.1:${DSH_PORT}
         header_up Origin http://127.0.0.1:${DSH_PORT}
+        # Authenticated loopback session, managed and refreshed by start-services.js.
+        header_up Cookie "{$DSH_BROWSER_COOKIE}"
     }
 
     # Enable WebSocket support for HMR and live updates
@@ -35,6 +37,7 @@
     reverse_proxy @websockets 127.0.0.1:${DSH_PORT} {
         header_up Host 127.0.0.1:${DSH_PORT}
         header_up Origin http://127.0.0.1:${DSH_PORT}
+        header_up Cookie "{$DSH_BROWSER_COOKIE}"
     }
 
     # Logging
